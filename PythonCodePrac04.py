@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python -u
 #DDXIRS001 - Irshaad Dodia
 #HRRGRA004 - Graeme Harris
 #EEE3096S - Embedded Systems II
@@ -8,7 +8,9 @@ import RPi.GPIO as GPIO
 import Adafruit_MCP3008
 import time
 import os
-
+from time import gmtime, strftime
+import sys
+import datetime
 
 GPIO.setmode(GPIO.BCM)    #Pin Numbering
 
@@ -28,7 +30,6 @@ SPICS = 8 #Yellow
 #Red = 5v
 #Black = GND
 
-
 #Setting GPIO I/O 
 GPIO.setup(Sw1, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 GPIO.setup(Sw2, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
@@ -42,15 +43,25 @@ GPIO.setup(SPICS, GPIO.OUT)
 
 mcp = Adafruit_MCP3008.MCP3008(clk=SPICLK, cs=SPICS, mosi=SPIMOSI, miso=SPIMISO)
 
-# global variable
+# global variables
 values = [0]*8
+current_time=""
+timer = datetime.datetime(1999,12,31,0,0,0)
+freq=1
 
 while True:
+    
     for i in range(8):
         values[i] = mcp.read_adc(i)
         # delay for a half second
-        time.sleep(0.1)
+        current_time=strftime("%H:%M:%S", gmtime())
+        
+    timer=timer+datetime.timedelta(0,freq)
+    time.sleep(freq)
+    
     print(values)
+    print(current_time)
+    print(str(timer.strftime("%H:%M:%S")))
 
 def reset_cb(channel): #When Switch 1 is triggered
         
@@ -68,8 +79,6 @@ def exit_cb(channel): #when Switch 4 is triggered
         
     print("Switch 4 pressed")
     GPIO.cleanup()
-            
-
     
 GPIO.add_event_detect(Sw1, GPIO.FALLING, callback=reset_cb, bouncetime=300)
 GPIO.add_event_detect(Sw2, GPIO.FALLING, callback=freq_cb, bouncetime=300)
