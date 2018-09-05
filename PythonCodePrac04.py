@@ -70,6 +70,15 @@ def exit_cb(channel): #when Switch 4 is triggered
 def pot2volt(pot):
     return (pot/1023)*3.3
 
+def volt2temp(temp):
+    #Ambient voltage at 0 degree celsius
+    v_0deg=0.5
+    #0.1 is the mv/degree celsius of temp sensor
+    return (((temp/1023)*3.3)-0.5)/0.01
+
+def light2pcnt(light):
+    return(light/857)*100
+
 while True:
     
     for i in range(8):
@@ -78,12 +87,13 @@ while True:
         current_time=strftime("%H:%M:%S", gmtime())
     
     pot=pot2volt(values[0])
+    light=light2pcnt(values[1])
+    temp=volt2temp(values[2])
     
     timer=timer+datetime.timedelta(0,freq)
     time.sleep(freq)
     
-    print(values)
-    print(pot)
+    print(pot,temp,light)
     print(current_time)
     print(str(timer.strftime("%H:%M:%S")))
     
