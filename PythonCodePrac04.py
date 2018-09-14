@@ -11,6 +11,7 @@ import os
 from time import gmtime, strftime
 import sys
 import datetime
+import collections
 
 GPIO.setmode(GPIO.BCM)    #Pin Numbering
 
@@ -47,40 +48,80 @@ mcp = Adafruit_MCP3008.MCP3008(clk=SPICLK, cs=SPICS, mosi=SPIMOSI, miso=SPIMISO)
 values = [0]*8
 current_time=""
 timer = datetime.datetime(1999,12,31,0,0,0)
-freq=1
+freq_count=0
+freq=0.5
+pot=0
+stop=False
+readings = collections.deque(maxlen=5)
 
-while True:
+def reset_cb(channel): #When Switch 1 is triggered
+    global timer
+    #reset timer
+    timer = datetime.datetime(1999,12,31,0,0,0)
+    #Clears the terminal, everything else is a dirty hack
+    print("\033[H\033[J")
+            
+def freq_cb(channel): #when Switch 2 is triggered
+    global freq_count
+    global freq
     
+    freq_count=freq_count+1
+    if(freq_count<=2):
+        if(freq_count==0):
+            freq=0.5
+        elif(freq_count==1):
+            freq=1
+        else:
+            freq=2
+    else:
+        freq=0.5
+        freq_count=0
+        
+def stop_cb(channel): #when Switch 3 is triggered
+    global stop
+    stop=~stop
+    
+def disp_cb(channel): #when Switch 4 is triggered
+    print("TIME    ", "TIMER\t", "  POT\t", " TEMP\t", "LIGHT\t");
+    for r in readings:
+        print(r)
+        print('------------------------------------')
+    
+def pot2volt(pot):
+    return (pot/1023)*3.3
+
+def volt2temp(temp):
+    #Ambient voltage at 0 degree celsius
+    v_0deg=0.5
+    #0.1 is the mv/degree celsius of temp sensor
+    return (((temp/1023)*3.3)-0.5)/0.01
+
+def light2pcnt(light):
+    return(light/857)*100
+
+GPIO.add_event_detect(Sw1, GPIO.FALLING, callback=reset_cb, bouncetime=300)
+GPIO.add_event_detect(Sw2, GPIO.FALLING, callback=freq_cb, bouncetime=300)
+GPIO.add_event_detect(Sw3, GPIO.FALLING, callback=stop_cb, bouncetime=300)
+GPIO.add_event_detect(Sw4, GPIO.FALLING, callback=disp_cb, bouncetime=300)
+
+print("TIME    ", "TIMER\t", "  POT\t", " TEMP\t", "LIGHT\t");
+print('------------------------------------')
+while True:
     for i in range(8):
         values[i] = mcp.read_adc(i)
         # delay for a half second
         current_time=strftime("%H:%M:%S", gmtime())
+    
+    pot='{0:.2g}V'.format(pot2volt(values[0]))
+    temp=' {0:.2g}C'.format(volt2temp(values[2]))
+    light='  {0:.2g}%'.format(light2pcnt(values[1]))
         
     timer=timer+datetime.timedelta(0,freq)
     time.sleep(freq)
     
-    print(values)
-    print(current_time)
-    print(str(timer.strftime("%H:%M:%S")))
+    if(~stop):
+        print(current_time, str(timer.strftime("%H:%M:%S")), pot,temp,light)
+        print('------------------------------------')
+    else:
+        readings.append(""+current_time + " " + str(timer.strftime("%H:%M:%S"))+ " " + pot+ " " + temp+ " " + light)
 
-def reset_cb(channel): #When Switch 1 is triggered
-        
-    print("Switch 1 pressed")
-            
-def freq_cb(channel): #when Switch 2 is triggered
-    
-    print("Switch 2 pressed")
-        
-def stop_cb(channel): #when Switch 3 is triggered
-        
-    print("Switch 3 pressed")
-    
-def exit_cb(channel): #when Switch 4 is triggered
-        
-    print("Switch 4 pressed")
-    GPIO.cleanup()
-    
-GPIO.add_event_detect(Sw1, GPIO.FALLING, callback=reset_cb, bouncetime=300)
-GPIO.add_event_detect(Sw2, GPIO.FALLING, callback=freq_cb, bouncetime=300)
-GPIO.add_event_detect(Sw3, GPIO.FALLING, callback=stop_cb, bouncetime=300)
-GPIO.add_event_detect(Sw4, GPIO.FALLING, callback=exit_cb, bouncetime=300)
